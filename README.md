@@ -24,15 +24,35 @@ This is a personal learning project. **All server data is simulated** and all re
 | 4. Evals | May–Jun 2027 | An eval suite in CI that fails the build when quality drops, plus latency, token and cost metrics |
 | 5. Cloud | Jul–Sep 2027 | Deployed on AWS, with its monthly cost documented |
 
+- [x] Phase 0 — project bootstrap (Spring Boot 4, Spring AI 2.0, PostgreSQL + pgvector)
 - [ ] Phase 1 — structured inventory
 - [ ] Phase 2 — RAG over migration docs
 - [ ] Phase 3 — MCP tools and agent with human approval
 - [ ] Phase 4 — evals and observability
 - [ ] Phase 5 — AWS deployment
 
-## Planned stack
+## Stack
 
-Java 21 · Spring Boot 4 · Spring AI 2.0 · PostgreSQL + pgvector · Docker · JUnit — later MCP, GitHub Actions and AWS.
+Java 21 · Spring Boot 4 · Spring AI 2.0 · Anthropic Claude · PostgreSQL + pgvector · Docker · JUnit — later MCP, GitHub Actions and AWS.
+
+## How to run
+
+Requirements: Java 21, Docker Desktop running, and an Anthropic API key.
+
+```bash
+export ANTHROPIC_API_KEY='your-key'
+./mvnw spring-boot:run
+```
+
+Spring Boot starts PostgreSQL + pgvector automatically via Docker Compose.
+
+| Endpoint | What it checks |
+| --- | --- |
+| `GET /api/status` | The service is up |
+| `GET /actuator/health` | App and database health |
+| `GET /api/ai/ping` | End-to-end call to the model |
+
+Run the tests with `./mvnw test`.
 
 ## Design principles
 
