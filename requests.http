@@ -7,7 +7,7 @@ POST http://localhost:8080/api/chat
 Content-Type: application/json
 
 {
-  "message": "What changed between Java 17 and Java 21?"
+  "message": "What changed between Java 17 and Java 21? Answer me with 100 letters"
 }
 
 ### Validation error (expect 400)
