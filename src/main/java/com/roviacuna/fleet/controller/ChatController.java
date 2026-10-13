@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -18,6 +19,8 @@ import java.util.stream.Collectors;
 public class ChatController {
 
     private final ChatClient chatClient;
+
+    private static final Set<String> TRUNCATION_REASONS = Set.of("max_tokens", "length");
 
     public record ChatRequest(@NotBlank @Size(max = 2000) String message) {
     }
@@ -48,7 +51,8 @@ public class ChatController {
                 .collect(Collectors.joining("\n"));
 
         boolean truncated = response.getResults().stream()
-                .anyMatch(g -> "max_tokens".equalsIgnoreCase(g.getMetadata().getFinishReason()));
+                .map(g -> g.getMetadata().getFinishReason())
+                .anyMatch(reason -> reason != null && TRUNCATION_REASONS.contains(reason.toLowerCase()));
 
         return new ChatResponse(reply, truncated);
     }

@@ -2,6 +2,7 @@
 GET http://localhost:8080/api/status
 
 ### Chat
+# @timeout 300
 POST http://localhost:8080/api/chat
 Content-Type: application/json
 

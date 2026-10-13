@@ -32,7 +32,8 @@ client.
 | 5. Cloud          | Jul–Sep 2027 | Deployed on AWS, with its monthly cost documented                                                                                            |
 
 - [x] Phase 0 — project bootstrap (Spring Boot 4, Spring AI 2.0, PostgreSQL + pgvector)
-- [ ] Phase 1 — structured inventory *(in progress: chat endpoint with validation and truncation detection)*
+- [ ] Phase 1 — structured inventory *(in progress: validated chat endpoint, truncation detection, switchable model
+  provider)*
 - [ ] Phase 2 — RAG over migration docs
 - [ ] Phase 3 — MCP tools and agent with human approval
 - [ ] Phase 4 — evals and observability
@@ -40,12 +41,13 @@ client.
 
 ## Stack
 
-Java 25 · Spring Boot 4 · Spring AI 2.0 · Anthropic Claude · PostgreSQL + pgvector · Docker · JUnit — later MCP, GitHub
-Actions and AWS.
+Java 25 · Spring Boot 4 · Spring AI 2.0 · Anthropic Claude · Ollama (local models) · PostgreSQL + pgvector · Docker ·
+JUnit — later MCP, GitHub Actions and AWS.
 
 ## How to run
 
-Requirements: Java 25, Docker Desktop running, and an Anthropic API key.
+Requirements: Java 25, Docker Desktop running, and an Anthropic API key. [Ollama](https://ollama.com) is optional, only
+for the local-model profile.
 
 ```bash
 export ANTHROPIC_API_KEY='your-key'
@@ -63,6 +65,21 @@ Spring Boot starts PostgreSQL + pgvector automatically via Docker Compose.
 
 Ready-to-run requests are in [`requests.http`](requests.http) (IntelliJ HTTP client). Run the tests with `./mvnw test`.
 
+### Switching models
+
+The chat provider is chosen by configuration, not code. Claude is the default; the `ollama` Spring profile switches to a
+local model:
+
+```bash
+ollama pull llama3.1:8b
+./mvnw spring-boot:run -Dspring-boot.run.profiles=ollama
+```
+
+| Profile   | Provider                  | Configuration                   |
+|-----------|---------------------------|---------------------------------|
+| (default) | Anthropic Claude          | `application.properties`        |
+| `ollama`  | Ollama at localhost:11434 | `application-ollama.properties` |
+
 ## Design principles
 
 1. **A human approves every action.** The assistant proposes; it never executes on its own.
@@ -74,14 +91,27 @@ Ready-to-run requests are in [`requests.http`](requests.http) (IntelliJ HTTP cli
 
 - **Silent empty replies.** The chat endpoint returned `200` with an empty reply. The model's response contained more
   than one generation and the code read only the first one, which was empty; the real answer was also cut off by the
-  token limit. Fix: read text from all generations and expose a `truncated` flag (based on the `max_tokens` finish
-  reason) so clients know when an answer is incomplete.
+  token limit. Fix: read text from all generations and expose a `truncated` flag so clients know when an answer is
+  incomplete. Providers name this finish reason differently (`max_tokens` in Anthropic, `length` in others), so both are
+  checked.
 - **Configuration keys change between versions.** Spring AI 2.0 renamed several properties (for example,
   `spring.ai.anthropic.chat.options.model` → `spring.ai.anthropic.chat.model`). Unknown keys are ignored without errors,
   so property names should be checked against the version's metadata (IDE hints), not older tutorials.
 - **Secrets never belong in examples.** A real API key ended up in `.env.example`; GitHub push protection blocked the
   push. The key was rotated and the local history rewritten before publishing. `.env` is git-ignored and keys are only
   read from environment variables.
+- **Hosted vs local models (same prompt, switched with a Spring profile).**
+
+  | Model          | Where         | Time         | Quality                                                                     |
+      |----------------|---------------|--------------|-----------------------------------------------------------------------------|
+  | Claude (Haiku) | Anthropic API | ~11 s        | Accurate, covered the key features                                          |
+  | llama3.2 3B    | Ollama, CPU   | ~23 s        | Hallucinated facts and fell into a repetition loop                          |
+  | llama3.1 8B    | Ollama, CPU   | ~96 s (warm) | Fluent and well formatted, but invented release dates, codenames and features |
+
+  All three returned HTTP 200. The 8B model also gave different answers to slightly different phrasings of the same
+  question, and the first call timed out the client while the model loaded into memory. Takeaways: quality must be
+  checked by evals, not status codes; open questions go to a strong hosted model; small local models are kept for
+  bounded tasks such as embeddings (`mxbai-embed-large`) or extraction from context the app provides.
 
 ## Known issues
 
