@@ -1,5 +1,6 @@
 package com.roviacuna.fleet;
 
+import com.roviacuna.fleet.controller.StatusController;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
