@@ -79,6 +79,18 @@ class ChatControllerTest {
     }
 
     @Test
+    void chatReturnsBadGatewayWhenModelReturnsNoResults() throws Exception {
+        givenModelResponds();
+
+        mockMvc.perform(post("/api/chat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"message": "Hi"}
+                                """))
+                .andExpect(status().isBadGateway());
+    }
+
+    @Test
     void chatRejectsBlankMessage() throws Exception {
         mockMvc.perform(post("/api/chat")
                         .contentType(MediaType.APPLICATION_JSON)

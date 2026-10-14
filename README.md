@@ -32,8 +32,8 @@ client.
 | 5. Cloud          | Jul–Sep 2027 | Deployed on AWS, with its monthly cost documented                                                                                            |
 
 - [x] Phase 0 — project bootstrap (Spring Boot 4, Spring AI 2.0, PostgreSQL + pgvector)
-- [ ] Phase 1 — structured inventory *(in progress: validated chat endpoint, truncation detection, switchable model
-  provider)*
+- [ ] Phase 1 — structured inventory *(in progress: chat and customer-email endpoints with scoped system prompts,
+  truncation detection, switchable model provider)*
 - [ ] Phase 2 — RAG over migration docs
 - [ ] Phase 3 — MCP tools and agent with human approval
 - [ ] Phase 4 — evals and observability
@@ -41,8 +41,8 @@ client.
 
 ## Stack
 
-Java 25 · Spring Boot 4 · Spring AI 2.0 · Anthropic Claude · Ollama (local models) · PostgreSQL + pgvector · Docker ·
-JUnit — later MCP, GitHub Actions and AWS.
+Java 25 · Spring Boot 4 · Spring AI 2.0 · Anthropic Claude · Ollama and Docker Model Runner (local models) ·
+PostgreSQL + pgvector · Docker · JUnit — later MCP, GitHub Actions and AWS.
 
 ## How to run
 
@@ -56,29 +56,45 @@ export ANTHROPIC_API_KEY='your-key'
 
 Spring Boot starts PostgreSQL + pgvector automatically via Docker Compose.
 
-| Endpoint               | What it does                                                                   |
-|------------------------|--------------------------------------------------------------------------------|
-| `GET /api/status`      | Confirms the service is up                                                     |
-| `GET /actuator/health` | App and database health                                                        |
-| `GET /api/ai/ping`     | End-to-end call to the model                                                   |
-| `POST /api/chat`       | Sends a message to the model; returns `{ "reply": "...", "truncated": false }` |
+| Endpoint               | What it does                                                                                   |
+|------------------------|------------------------------------------------------------------------------------------------|
+| `GET /api/status`      | Confirms the service is up                                                                     |
+| `GET /actuator/health` | App and database health                                                                        |
+| `GET /api/ai/ping`     | End-to-end call to the model                                                                   |
+| `POST /api/chat`       | Answers JDK migration questions; returns `{ "reply": "...", "truncated": false }`              |
+| `POST /api/email`      | Drafts a reply email to a customer's message; returns `{ "email": "...", "truncated": false }` |
 
-Ready-to-run requests are in [`requests.http`](requests.http) (IntelliJ HTTP client). Run the tests with `./mvnw test`.
+Both AI endpoints only answer questions about Java and JDK migration and politely refuse anything else. Their system
+prompts live in `src/main/resources/prompts/`. Invalid input returns `400`; if the model returns no result, the API
+returns `502`.
+
+Ready-to-run requests are in [`requests.http`](requests.http) (IntelliJ HTTP client), including off-topic and
+prompt-injection cases, with assertions on status codes. Run the tests with `./mvnw test`.
 
 ### Switching models
 
-The chat provider is chosen by configuration, not code. Claude is the default; the `ollama` Spring profile switches to a
-local model:
+The chat provider is chosen by configuration, not code. Claude is the default; a Spring profile switches to a local
+model.
+
+Ollama:
 
 ```bash
 ollama pull llama3.1:8b
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=ollama
 ```
 
-| Profile   | Provider                  | Configuration                   |
-|-----------|---------------------------|---------------------------------|
-| (default) | Anthropic Claude          | `application.properties`        |
-| `ollama`  | Ollama at localhost:11434 | `application-ollama.properties` |
+Docker Model Runner (OpenAI-compatible API, enable it in Docker Desktop):
+
+```bash
+docker model pull ai/gemma3
+./mvnw spring-boot:run -Dspring-boot.run.profiles=docker
+```
+
+| Profile   | Provider                               | Configuration                   |
+|-----------|----------------------------------------|---------------------------------|
+| (default) | Anthropic Claude                       | `application.properties`        |
+| `ollama`  | Ollama at localhost:11434              | `application-ollama.properties` |
+| `docker`  | Docker Model Runner at localhost:12434 | `application-docker.properties` |
 
 ## Design principles
 
@@ -102,26 +118,32 @@ ollama pull llama3.1:8b
   read from environment variables.
 - **Hosted vs local models (same prompt, switched with a Spring profile).**
 
-  | Model          | Where         | Time         | Quality                                                                     |
-        |----------------|---------------|--------------|-----------------------------------------------------------------------------|
-  | Claude (Haiku) | Anthropic API | ~11 s        | Accurate, covered the key features                                          |
-  | llama3.2 3B    | Ollama, CPU   | ~23 s        | Hallucinated facts and fell into a repetition loop                          |
+  | Model          | Where         | Time         | Quality                                                                       |
+      |----------------|---------------|--------------|-------------------------------------------------------------------------------|
+  | Claude (Haiku) | Anthropic API | ~11 s        | Accurate, covered the key features                                            |
+  | llama3.2 3B    | Ollama, CPU   | ~23 s        | Hallucinated facts and fell into a repetition loop                            |
   | llama3.1 8B    | Ollama, CPU   | ~96 s (warm) | Fluent and well formatted, but invented release dates, codenames and features |
 
   All three returned HTTP 200. The 8B model also gave different answers to slightly different phrasings of the same
   question, and the first call timed out the client while the model loaded into memory. Takeaways: quality must be
   checked by evals, not status codes; open questions go to a strong hosted model; small local models are kept for
   bounded tasks such as embeddings (`mxbai-embed-large`) or extraction from context the app provides.
-- **A per-request .system ()** silently replaced the default system prompt, so the assistant ignored its scope rules and
-  answered off-topic questions. Removing the leftover line fixed it; a test that sends an off-topic question would catch
-  this regression.
+- **A per-request `.system()` replaces the default system prompt.** A leftover `.system("You are a helpful
+  assistant.")` silently overrode the `defaultSystem` set on the builder, so the assistant ignored its scope rules and
+  answered off-topic questions. Removing it fixed the problem. In Spring AI's `ChatClient`, a per-request system prompt
+  replaces the default, while advisors and tools are added to the defaults.
+- **Shared response handling in one place.** Reading the text, detecting truncation and rejecting empty model responses
+  live in a small `ModelResponses` helper, so each new AI endpoint gets the same behavior instead of copying it.
+- **Customer input is data, not instructions.** The email prompt wraps the customer's message in tags and tells the
+  model to treat it only as content to answer. `requests.http` includes injection attempts in both the message and the
+  name fields; these are checked by reading the response for now, and will become automated evals in Phase 4.
 
 ## Known issues
 
 - The configured `max-tokens` value is not applied yet, so long answers may be truncated (they are flagged with
   `"truncated": true`).
-- `POST /api/chat` has no authentication or rate limiting. Fine for local development; required before any deployment
-  (Phase 5).
+- `POST /api/chat` and `POST /api/email` have no authentication or rate limiting. Fine for local development; required
+  before any deployment (Phase 5).
 
 ## Non-goals
 
