@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,8 +30,11 @@ public class ChatController {
     public record ChatResponse(String reply, boolean truncated) {
     }
 
-    public ChatController(ChatClient.Builder builder) {
-        this.chatClient = builder.build();
+    public ChatController(ChatClient.Builder builder,
+                          @Value("classpath:prompts/system.st") Resource systemPrompt) {
+        this.chatClient = builder
+                .defaultSystem(systemPrompt)
+                .build();
     }
 
     @PostMapping("/chat")

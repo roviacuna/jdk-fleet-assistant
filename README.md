@@ -103,7 +103,7 @@ ollama pull llama3.1:8b
 - **Hosted vs local models (same prompt, switched with a Spring profile).**
 
   | Model          | Where         | Time         | Quality                                                                     |
-      |----------------|---------------|--------------|-----------------------------------------------------------------------------|
+        |----------------|---------------|--------------|-----------------------------------------------------------------------------|
   | Claude (Haiku) | Anthropic API | ~11 s        | Accurate, covered the key features                                          |
   | llama3.2 3B    | Ollama, CPU   | ~23 s        | Hallucinated facts and fell into a repetition loop                          |
   | llama3.1 8B    | Ollama, CPU   | ~96 s (warm) | Fluent and well formatted, but invented release dates, codenames and features |
@@ -112,6 +112,9 @@ ollama pull llama3.1:8b
   question, and the first call timed out the client while the model loaded into memory. Takeaways: quality must be
   checked by evals, not status codes; open questions go to a strong hosted model; small local models are kept for
   bounded tasks such as embeddings (`mxbai-embed-large`) or extraction from context the app provides.
+- **A per-request .system ()** silently replaced the default system prompt, so the assistant ignored its scope rules and
+  answered off-topic questions. Removing the leftover line fixed it; a test that sends an off-topic question would catch
+  this regression.
 
 ## Known issues
 

@@ -4,6 +4,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 
+import static org.mockito.Answers.RETURNS_SELF;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -12,13 +13,15 @@ import static org.mockito.Mockito.when;
  * Builder, Spring lo resetea después de cada test y build() empieza a devolver un ChatClient
  * distinto al que tiene el controller. Por eso el Builder siempre devuelve el ChatClient del
  * test, declarado como @MockitoBean (Spring lo resetea, pero sigue siendo la misma instancia).
+ * RETURNS_SELF hace que los métodos encadenables (defaultSystem, defaultOptions, ...) devuelvan
+ * el mismo Builder en vez de null.
  */
 @TestConfiguration(proxyBeanMethods = false)
 class MockChatClientConfiguration {
 
     @Bean
     ChatClient.Builder chatClientBuilder(ChatClient chatClient) {
-        ChatClient.Builder builder = mock(ChatClient.Builder.class);
+        ChatClient.Builder builder = mock(ChatClient.Builder.class, RETURNS_SELF);
         when(builder.build()).thenReturn(chatClient);
         return builder;
     }
