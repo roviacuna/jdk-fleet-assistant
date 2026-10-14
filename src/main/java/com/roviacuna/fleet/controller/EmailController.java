@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,7 +31,7 @@ public class EmailController {
     public EmailController(ChatClient.Builder builder,
                            @Value("classpath:prompts/email-system.st") Resource systemPrompt,
                            @Value("classpath:prompts/email-user.st") Resource userTemplate) {
-        this.chatClient = builder.defaultSystem(systemPrompt).build();
+        this.chatClient = builder.defaultSystem(systemPrompt).defaultAdvisors(new SimpleLoggerAdvisor()).build();
         this.userTemplate = userTemplate;
     }
 

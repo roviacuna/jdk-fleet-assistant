@@ -71,6 +71,10 @@ returns `502`.
 Ready-to-run requests are in [`requests.http`](requests.http) (IntelliJ HTTP client), including off-topic and
 prompt-injection cases, with assertions on status codes. Run the tests with `./mvnw test`.
 
+To see the full prompt sent to the model and the raw response (including token usage), set
+`logging.level.org.springframework.ai.chat.client.advisor=DEBUG`; both AI endpoints use Spring AI's
+`SimpleLoggerAdvisor`.
+
 ### Switching models
 
 The chat provider is chosen by configuration, not code. Claude is the default; a Spring profile switches to a local
@@ -106,10 +110,16 @@ docker model pull ai/gemma3
 ## Lessons learned
 
 - **Silent empty replies.** The chat endpoint returned `200` with an empty reply. The model's response contained more
-  than one generation and the code read only the first one, which was empty; the real answer was also cut off by the
-  token limit. Fix: read text from all generations and expose a `truncated` flag so clients know when an answer is
-  incomplete. Providers name this finish reason differently (`max_tokens` in Anthropic, `length` in others), so both are
-  checked.
+  than one generation and the code read only the first one, which was empty: it was the model's thinking block, which
+  carries an encrypted signature instead of readable text. The real answer was in the second generation and was also cut
+  off by the token limit. Fix: read text from all generations and expose a `truncated` flag so clients know when an
+  answer is incomplete. Providers name this finish reason differently (`max_tokens` in Anthropic, `length` in others),
+  so both are checked.
+- **`max_tokens` is shared between thinking and the answer.** A broad question came back cut off mid-sentence. The
+  logged usage showed the limit was applied correctly: 2048 output tokens, of which 1903 were thinking, leaving 145 for
+  the visible reply. Thinking is on by default and adaptive (the model decides how much to think), and thinking tokens
+  are billed as output tokens even though the user never sees them. The limit was raised to 4096; tuning thinking per
+  endpoint is left for Phase 4, when evals can show whether less thinking lowers quality.
 - **Configuration keys change between versions.** Spring AI 2.0 renamed several properties (for example,
   `spring.ai.anthropic.chat.options.model` → `spring.ai.anthropic.chat.model`). Unknown keys are ignored without errors,
   so property names should be checked against the version's metadata (IDE hints), not older tutorials.
@@ -140,8 +150,8 @@ docker model pull ai/gemma3
 
 ## Known issues
 
-- The configured `max-tokens` value is not applied yet, so long answers may be truncated (they are flagged with
-  `"truncated": true`).
+- Very broad questions can still exceed the 4096-token limit once thinking is included; those answers are flagged with
+  `"truncated": true`.
 - `POST /api/chat` and `POST /api/email` have no authentication or rate limiting. Fine for local development; required
   before any deployment (Phase 5).
 
