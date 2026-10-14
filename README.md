@@ -3,8 +3,8 @@
 An AI assistant, built in Java with Spring AI, that helps plan the migration of a fleet of Java servers from Oracle JDK
 to OpenJDK — with a human approving every action.
 
-> **Status:** work in progress — Phase 1 (LLMs from Java) started in October 2026. This README describes what the
-> project will do; each section is updated as it ships.
+> **Status:** work in progress — currently in Phase 1 (LLMs from Java). This README describes what the project will
+> do; each section is updated as it ships.
 
 ## Why this project
 
@@ -23,13 +23,13 @@ client.
 
 ## Roadmap
 
-| Phase             | Dates        | What the assistant gains                                                                                                                     |
-|-------------------|--------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| 1. LLMs from Java | Oct–Dec 2026 | Turns messy server reports (free text, logs, command output) into a validated, structured inventory, using structured output and a tool call |
-| 2. RAG            | Jan–Feb 2027 | Answers JDK migration questions from public documentation, always citing the source                                                          |
-| 3. Agents + MCP   | Mar–Apr 2027 | An MCP server in Java exposes fleet tools; an agent proposes a batched migration plan that only runs after human approval                    |
-| 4. Evals          | May–Jun 2027 | An eval suite in CI that fails the build when quality drops, plus latency, token and cost metrics                                            |
-| 5. Cloud          | Jul–Sep 2027 | Deployed on AWS, with its monthly cost documented                                                                                            |
+| Phase             | What the assistant gains                                                                                                                     |
+|-------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| 1. LLMs from Java | Turns messy server reports (free text, logs, command output) into a validated, structured inventory, using structured output and a tool call |
+| 2. RAG            | Answers JDK migration questions from public documentation, always citing the source                                                          |
+| 3. Agents + MCP   | An MCP server in Java exposes fleet tools; an agent proposes a batched migration plan that only runs after human approval                    |
+| 4. Evals          | An eval suite in CI that fails the build when quality drops, plus latency, token and cost metrics                                            |
+| 5. Cloud          | Deployed on AWS, with its monthly cost documented                                                                                            |
 
 - [x] Phase 0 — project bootstrap (Spring Boot 4, Spring AI 2.0, PostgreSQL + pgvector)
 - [ ] Phase 1 — structured inventory *(in progress: chat and customer-email endpoints with scoped system prompts,
